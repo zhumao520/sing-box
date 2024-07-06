@@ -34,8 +34,6 @@ install_warp_container() {
     --cap-add=NET_ADMIN --sysctl net.ipv6.conf.all.disable_ipv6=0 \
     --sysctl net.ipv4.conf.all.src_valid_mark=1 \
     -v /mnt/warp/data:/var/lib/cloudflare-warp \
-    --health-cmd="nc -z 127.0.0.1 1080" --health-interval=1m30s \
-    --health-timeout=10s --health-retries=3 --health-start-period=40s \
     caomingjun/warp
 }
 
