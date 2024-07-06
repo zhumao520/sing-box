@@ -40,12 +40,6 @@ install_warp_container() {
     caomingjun/warp
 }
 
-# 安装Warp容器
-install_warp_container() {
-    create_docker_compose_file
-    docker-compose up -d
-}
-
 # 修改Hysteria2配置文件
 modify_hysteria2_config() {
     local config_dir="/etc/sing-box/conf"
@@ -111,7 +105,7 @@ EOF
     done
 }
 
-·main() {
+main() {
     if ! check_docker_installed; then
         echo "Docker未安装，正在安装Docker..."
         install_docker
@@ -130,7 +124,8 @@ EOF
     modify_hysteria2_config
     echo "Hysteria2配置文件已修改。"
 }
-  main
 
-   # 重启sing-box服务
-  systemctl restart sing-box && echo "sing-box服务已重启。"
+main
+
+# 重启sing-box服务
+systemctl restart sing-box && echo "sing-box服务已重启。"
