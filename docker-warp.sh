@@ -51,6 +51,12 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     volumes:
       - /mnt/warp/data:/var/lib/cloudflare-warp
+     healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "1080"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 EOF
 }
 
