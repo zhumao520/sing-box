@@ -27,37 +27,17 @@ check_warp_container() {
     fi
 }
 
-# 创建Docker Compose文件
-create_docker_compose_file() {
-    mkdir -p /mnt/warp/data
-
-    cat <<EOF > docker-compose.yml
-version: '3'
-
-services:
-  Warp:
-    image: caomingjun/warp
-    container_name: warp
-    restart: always
-    ports:
-      - "127.0.0.1:1080:1080" # 只允许本地访问
-    environment:
-      - WARP_SLEEP=2
-      - WARP_LICENSE_KEY=94A3DxI1-1od769nM-Z5D9bx81
-    cap_add:
-      - NET_ADMIN
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv4.conf.all.src_valid_mark=1
-    volumes:
-      - /mnt/warp/data:/var/lib/cloudflare-warp
-     healthcheck:
-      test: ["CMD", "nc", "-z", "127.0.0.1", "1080"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-EOF
+# 创建Warp容器所需的目录并运行容器
+install_warp_container() {
+    mkdir -p /mnt/warp/data && \
+    docker run -d --name warp --restart always -p 127.0.0.1:1080:1080 \
+    -e WARP_SLEEP=2 -e WARP_LICENSE_KEY=94A3DxI1-1od769nM-Z5D9bx81 \
+    --cap-add=NET_ADMIN --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+    --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+    -v /mnt/warp/data:/var/lib/cloudflare-warp \
+    --health-cmd="nc -z 127.0.0.1 1080" --health-interval=1m30s \
+    --health-timeout=10s --health-retries=3 --health-start-period=40s \
+    caomingjun/warp
 }
 
 # 安装Warp容器
@@ -131,7 +111,7 @@ EOF
     done
 }
 
-main() {
+·main() {
     if ! check_docker_installed; then
         echo "Docker未安装，正在安装Docker..."
         install_docker
