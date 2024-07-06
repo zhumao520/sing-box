@@ -181,7 +181,7 @@ download() {
 
     [[ $link ]] && {
         msg warn "下载 ${name} > ${link}"
-        if _wget -t 3 -q -c $link -O $tmpfile; then
+        if _wget -t 3 -v -c $link -O $tmpfile; then
             mv -f $tmpfile $is_ok
         fi
     }
