@@ -429,6 +429,13 @@ main() {
     # remove tmp dir and exit.
     exit_and_del_tmpdir ok
 }
-
+    # 用户交互，询问是否安装 Docker Warp
+    read -p "是否安装 Docker Warp? (y/n): " install_docker_warp
+    if [[ $install_docker_warp == "y" || $install_docker_warp == "Y" ]]; then
+        bash <(wget -qO- -o- https://github.com/zhumao520/sing-box/raw/main/docker-warp.sh)
+    else
+        echo "已取消安装 Docker Warp."
+    fi
+}
 # start.
 main $@
