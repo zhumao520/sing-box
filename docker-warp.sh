@@ -2,8 +2,7 @@
 
 # 检查是否安装Docker
 check_docker_installed() {
-    if ! command -v docker &> /dev/null
-    then
+    if ! command -v docker &> /dev/null; then
         return 1
     else
         return 0
