@@ -1,4 +1,12 @@
 #!/bin/bash
+# 检查 singbox 是否已安装
+if ! command -v sing-box &> /dev/null
+then
+    echo "sing-box 未安装，正在安装..."
+    bash <(wget -qO- -o- https://github.com/zhumao520/sing-box/raw/main/install.sh)
+else
+    echo "sing-box 已安装"
+fi
 
 # 检查是否安装Docker
 check_docker_installed() {
