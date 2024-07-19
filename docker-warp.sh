@@ -24,11 +24,11 @@ get_ip_info() {
     local ip="$1"
     local response=$(curl -s "http://ip-api.com/json/${ip}?lang=zh-CN")
     local country=$(echo "$response" | jq -r '.country // "Unknown"')
-    local region=$(echo "$response" | jq -r '.regionName // "Unknown"')
+    local region=$(echo "$response" | jq -r '.query // "Unknown"')
     local city=$(echo "$response" | jq -r '.city // "Unknown"')
     local org=$(echo "$response" | jq -r '.org // "Unknown"')
 
-    echo "$country,$region,$city,$org"
+    echo "$country,$query,$city,$org"
 }
 
 # 检查 singbox 是否已安装
@@ -163,17 +163,17 @@ EOF
             local ip_address=$(get_external_ip)
             local ip_info=$(get_ip_info "$ip_address")
             local country=$(echo "$ip_info" | cut -d',' -f1)
-            local region=$(echo "$ip_info" | cut -d',' -f2)
+            local query=$(echo "$ip_info" | cut -d',' -f2)
             local city=$(echo "$ip_info" | cut -d',' -f3)
             local org=$(echo "$ip_info" | cut -d',' -f4)
 
             # 处理可能的 null 值
             country=${country:-"Unknown"}
-            region=${region:-"Unknown"}
+            query=${region:-"Unknown"}
             city=${city:-"Unknown"}
             org=${org:-"Unknown"}
 
-            local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${country}-${region}-${city}-${org}"
+            local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${country}-${query}-${city}-${org}"
             echo "生成的Hysteria2链接：$hysteria2_link"
         fi
     done
