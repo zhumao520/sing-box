@@ -1,12 +1,65 @@
+ 
 #!/bin/bash
+
+# 检查并安装必需的工具
+check_and_install_tools() {
+    local tools=("wget" "jq" "expect" "curl")
+    for tool in "${tools[@]}"; do
+        if ! command -v "$tool" &> /dev/null; then
+            echo "$tool 未安装，正在安装..."
+            sudo apt-get update && sudo apt-get install -y "$tool"
+        else
+            echo "$tool 已安装"
+        fi
+    done
+}
+
+# 获取外网IP地址
+get_external_ip() {
+    curl -s http://ip.sb
+}
+
+# 获取IP地址的信息
+get_ip_info() {
+    local ip="$1"
+    local response=$(curl -s "http://ip-api.com/json/${ip}?lang=zh-CN")
+    local country=$(echo "$response" | jq -r '.country // "Unknown"')
+    local region=$(echo "$response" | jq -r '.regionName // "Unknown"')
+    local city=$(echo "$response" | jq -r '.city // "Unknown"')
+    local org=$(echo "$response" | jq -r '.org // "Unknown"')
+
+    echo "$country,$region,$city,$org"
+}
+
 # 检查 singbox 是否已安装
-if ! command -v sing-box &> /dev/null
-then
-    echo "sing-box 未安装，正在安装..."
-    bash <(wget -qO- -o- https://github.com/zhumao520/sing-box/raw/main/install.sh)
-else
-    echo "sing-box 已安装"
-fi
+check_and_install_singbox() {
+    if ! command -v sing-box &> /dev/null; then
+        echo "sing-box 未安装，正在安装..."
+        bash <(wget -qO- https://github.com/zhumao520/sing-box/raw/main/install.sh)
+    else
+        echo "sing-box 已安装"
+        check_hysteria2_files
+    fi
+}
+
+# 检查是否存在 Hysteria2 配置文件
+check_hysteria2_files() {
+    local config_dir="/etc/sing-box/conf"
+    local files=("$config_dir"/Hysteria2-*.json)
+    if [ -e "${files[0]}" ]; then
+        echo "Hysteria2 配置文件已存在"
+    else
+        echo "Hysteria2 配置文件不存在，正在重新安装 sing-box..."
+        local output=$(bash <(wget -qO- https://github.com/zhumao520/sing-box/raw/main/install.sh))
+        echo "$output"
+        if ! echo "$output" | grep -q "Hysteria2"; then
+            echo "没有检测到 Hysteria2 字符，请手动运行 sb 进行配置。"
+            sb
+            echo "请在 sb 配置完成后按 Enter 继续..."
+            read -r
+        fi
+    fi
+}
 
 # 检查是否安装Docker
 check_docker_installed() {
@@ -27,7 +80,7 @@ install_docker() {
 
 # 检查是否存在名为warp的容器
 check_warp_container() {
-    if [ $(docker ps -a --format '{{.Names}}' | grep -w "warp" | wc -l) -eq 0 ]; then
+    if [ "$(docker ps -a --format '{{.Names}}' | grep -w "warp" | wc -l)" -eq 0 ]; then
         return 1
     else
         return 0
@@ -45,15 +98,15 @@ install_warp_container() {
     caomingjun/warp
 }
 
-# 修改Hysteria2配置文件
+# 修改Hysteria2配置文件并生成链接
 modify_hysteria2_config() {
     local config_dir="/etc/sing-box/conf"
     for file in "$config_dir"/Hysteria2-*.json; do
-        if [ -f "$file" ]; then
+        if [ -f "$file" ];then
             local filename=$(basename "$file")
             local password=$(jq -r '.inbounds[0].users[0].password' "$file")
             local listen_port=$(jq -r '.inbounds[0].listen_port' "$file")
-            
+
             cat <<EOF > "$file"
 {
   "log": {
@@ -106,25 +159,45 @@ modify_hysteria2_config() {
   }
 }
 EOF
+
+            local ip_address=$(get_external_ip)
+            local ip_info=$(get_ip_info "$ip_address")
+            local country=$(echo "$ip_info" | cut -d',' -f1)
+            local region=$(echo "$ip_info" | cut -d',' -f2)
+            local city=$(echo "$ip_info" | cut -d',' -f3)
+            local org=$(echo "$ip_info" | cut -d',' -f4)
+
+            # 处理可能的 null 值
+            country=${country:-"Unknown"}
+            region=${region:-"Unknown"}
+            city=${city:-"Unknown"}
+            org=${org:-"Unknown"}
+
+            local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${country}-${region}-${city}-${org}"
+            echo "生成的Hysteria2链接：$hysteria2_link"
         fi
     done
 }
 
 main() {
+    check_and_install_tools
+
+    check_and_install_singbox
+
     if ! check_docker_installed; then
         echo "Docker未安装，正在安装Docker..."
         install_docker
     else
         echo "Docker已安装。"
     fi
-    
+
     if ! check_warp_container; then
         echo "Warp容器未找到，正在安装Warp容器..."
         install_warp_container
     else
         echo "Warp容器已安装。"
     fi
-    
+
     # 修改Hysteria2配置文件
     modify_hysteria2_config
     echo "Hysteria2配置文件已修改。"
