@@ -24,7 +24,7 @@ get_ip_info() {
     local ip="$1"
     local response=$(curl -s "http://ip-api.com/json/${ip}?lang=zh-CN")
     local country=$(echo "$response" | jq -r '.country // "Unknown"')
-    local region=$(echo "$response" | jq -r '.query // "Unknown"')
+    local query=$(echo "$response" | jq -r '.query // "Unknown"')
     local city=$(echo "$response" | jq -r '.city // "Unknown"')
     local org=$(echo "$response" | jq -r '.org // "Unknown"')
 
