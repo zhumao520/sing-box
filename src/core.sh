@@ -788,6 +788,9 @@ add() {
     # no prefer protocol
     [[ ! $is_new_protocol ]] && ask set_protocol
 
+    # 将默认协议改为 Hysteria2
+    [[ ! $is_new_protocol ]] && is_new_protocol="Hysteria2"
+    
     case ${is_new_protocol,,} in
     *-tls)
         is_use_tls=1
