@@ -425,7 +425,7 @@ main() {
 
     load core.sh
     # create a reality config
-    add reality
+    add hysteria
     # remove tmp dir and exit.
     exit_and_del_tmpdir ok
 }
