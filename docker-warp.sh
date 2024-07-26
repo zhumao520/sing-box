@@ -174,7 +174,7 @@ EOF
             org=${org:-"Unknown"}
 
             local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${country}-${ip_address}-${city}-${org}"
-            echo "生成的Hysteria2链接：$hysteria2_link"
+            echo "生成的Hysteria2链接：$(tput setaf 4)$hysteria2_link$(tput sgr0)"
         fi
     done
 }
