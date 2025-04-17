@@ -2,8 +2,6 @@
 
 protocol_list=(
     Hysteria2
-    VLESS-REALITY
-    VLESS-HTTP2-REALITY
     TUIC
     Trojan
     VMess-WS
@@ -20,6 +18,8 @@ protocol_list=(
     VMess-HTTPUpgrade-TLS
     VLESS-HTTPUpgrade-TLS
     Trojan-HTTPUpgrade-TLS
+    VLESS-REALITY
+    VLESS-HTTP2-REALITY
     # Direct
     Socks
 )
@@ -210,6 +210,7 @@ ask() {
         ;;
     set_protocol)
         is_tmp_list=(${protocol_list[@]})
+        is_default_arg="Hysteria2"
         [[ $is_no_auto_tls ]] && {
             unset is_tmp_list
             for v in ${protocol_list[@]}; do
@@ -217,6 +218,7 @@ ask() {
             done
         }
         is_opt_msg="\n请选择协议:\n"
+        is_opt_input_msg="(默认\e[92m $is_default_arg\e[0m):"
         is_ask_set=is_new_protocol
         ;;
     set_change_list)
@@ -1495,9 +1497,7 @@ is_main_menu() {
     ask mainmenu
     case $REPLY in
     1)
-        # 默认自动添加Hysteria2协议
-        is_new_protocol=Hysteria2
-        add Hysteria2
+        add
         ;;
     2)
         change
