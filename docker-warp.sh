@@ -598,6 +598,9 @@ modify_routing_rules() {
     local config_dir="/etc/sing-box/conf"
     local main_config="/etc/sing-box/config.json"
     
+    # 备份主配置文件
+    cp "$main_config" "$main_config.bak.$(date +%Y%m%d%H%M%S)"
+    
     # 收集所有入站tag
     local inbound_tags=()
     for file in "$config_dir"/*.json; do
@@ -615,22 +618,46 @@ modify_routing_rules() {
     local temp_config=$(mktemp)
     cp "$main_config" "$temp_config"
     
+    # 首先清理已有的socks相关出站
+    # 获取当前所有的出站标签
+    local existing_outbounds=$(jq '.outbounds // []' "$temp_config")
+    local new_outbounds="[]"
+    
+    # 仅保留不含socks-out前缀的出站
+    if [ "$(echo "$existing_outbounds" | jq 'length')" -gt 0 ]; then
+        new_outbounds="["
+        local outbound_count=$(echo "$existing_outbounds" | jq 'length')
+        for i in $(seq 0 $((outbound_count - 1))); do
+            local outbound=$(echo "$existing_outbounds" | jq ".[$i]")
+            local tag=$(echo "$outbound" | jq -r '.tag // ""')
+            
+            # 如果标签不以socks-out开头，则保留
+            if [[ "$tag" != "socks-out"* ]]; then
+                new_outbounds+="$outbound"
+                # 如果不是最后一个元素，添加逗号
+                if [ $i -lt $((outbound_count - 1)) ]; then
+                    new_outbounds+=","
+                fi
+            fi
+        done
+        new_outbounds+="]"
+        
+        # 更新outbounds
+        jq ".outbounds = $new_outbounds" "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    fi
+    
     # 检查是否存在outbounds部分
     if ! jq -e '.outbounds' "$temp_config" > /dev/null 2>&1; then
         # 如果没有outbounds，添加一个空数组
         jq '. += {"outbounds":[]}' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
     fi
     
-    # 检查是否有WARP socks出站
-    for tag in "${inbound_tags[@]}"; do
-        local socks_tag="socks-out-$tag"
-        if ! jq -e ".outbounds[] | select(.tag == \"$socks_tag\")" "$temp_config" > /dev/null 2>&1; then
-            # 添加socks出站
-            jq --arg tag "$socks_tag" '.outbounds += [{"type":"socks","tag":$tag,"server":"127.0.0.1","server_port":1080}]' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
-        fi
-    done
+    # 添加一个主WARP SOCKS代理出站
+    if ! jq -e '.outbounds[] | select(.tag == "socks-out-main")' "$temp_config" > /dev/null 2>&1; then
+        jq '.outbounds += [{"type":"socks","tag":"socks-out-main","server":"127.0.0.1","server_port":1080}]' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    fi
     
-    # 检查是否有direct出站
+    # 添加direct出站（如果不存在）
     if ! jq -e '.outbounds[] | select(.tag == "direct-out-main")' "$temp_config" > /dev/null 2>&1; then
         jq '.outbounds += [{"type":"direct","tag":"direct-out-main"}]' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
     fi
@@ -641,12 +668,10 @@ modify_routing_rules() {
         jq '. += {"route":{}}' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
     fi
     
-    # 创建rules数组
+    # 创建rules数组 - 所有入站都使用同一个socks-out-main出站
     local rules_array="["
     for tag in "${inbound_tags[@]}"; do
-        local socks_tag="socks-out-$tag"
-        # 注意转义双引号
-        rules_array+="{\"inbound\":[\"$tag\"],\"outbound\":\"$socks_tag\"},"
+        rules_array+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-main\"},"
     done
     # 移除最后一个逗号
     rules_array=${rules_array%,}
