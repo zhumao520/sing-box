@@ -108,6 +108,7 @@ modify_hysteria2_config() {
             if [[ "$filename" == Hysteria2-* ]]; then
                 local password=$(jq -r '.inbounds[0].users[0].password' "$file")
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file")
+                local socks_tag="socks-out-${filename}"
                 
                 cat <<EOF > "$file"
 {
@@ -139,13 +140,13 @@ modify_hysteria2_config() {
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -154,10 +155,10 @@ modify_hysteria2_config() {
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -184,6 +185,7 @@ EOF
                 local server_name=$(jq -r '.inbounds[0].tls.server_name' "$file" 2>/dev/null || echo "")
                 local private_key=$(jq -r '.inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
                 local path=$(jq -r '.inbounds[0].transport.path' "$file" 2>/dev/null || echo "")
+                local socks_tag="socks-out-${filename}"
                 
                 # 保留VLESS协议的原始入站配置
                 local inbounds_config=$(jq '.inbounds[0]' "$file")
@@ -200,13 +202,13 @@ EOF
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -215,10 +217,10 @@ EOF
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -226,6 +228,7 @@ EOF
             elif [[ "$filename" == Trojan-* ]]; then
                 local password=$(jq -r '.inbounds[0].users[0].password' "$file" 2>/dev/null)
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null)
+                local socks_tag="socks-out-${filename}"
                 
                 # 保留Trojan协议的原始入站配置
                 local inbounds_config=$(jq '.inbounds[0]' "$file")
@@ -242,13 +245,13 @@ EOF
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -257,10 +260,10 @@ EOF
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -268,6 +271,7 @@ EOF
             elif [[ "$filename" == TUIC-* ]]; then
                 # 保留TUIC协议的原始入站配置
                 local inbounds_config=$(jq '.inbounds[0]' "$file")
+                local socks_tag="socks-out-${filename}"
                 
                 cat <<EOF > "$file"
 {
@@ -281,13 +285,13 @@ EOF
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -296,10 +300,10 @@ EOF
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -307,6 +311,7 @@ EOF
             elif [[ "$filename" == VMess-* ]]; then
                 # 保留VMess协议的原始入站配置
                 local inbounds_config=$(jq '.inbounds[0]' "$file")
+                local socks_tag="socks-out-${filename}"
                 
                 cat <<EOF > "$file"
 {
@@ -320,13 +325,13 @@ EOF
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -335,10 +340,10 @@ EOF
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -346,6 +351,7 @@ EOF
             elif [[ "$filename" == Shadowsocks-* ]]; then
                 # 保留Shadowsocks协议的原始入站配置
                 local inbounds_config=$(jq '.inbounds[0]' "$file")
+                local socks_tag="socks-out-${filename}"
                 
                 cat <<EOF > "$file"
 {
@@ -359,13 +365,13 @@ EOF
   "outbounds": [
     {
       "type": "socks",
-      "tag": "socks-out",
+      "tag": "$socks_tag",
       "server": "127.0.0.1",
       "server_port": 1080
     },
     {
       "type": "direct",
-      "tag": "direct-out"
+      "tag": "direct-out-${filename}"
     }
   ],
   "route": {
@@ -374,10 +380,10 @@ EOF
         "inbound": [
           "$filename"
         ],
-        "outbound": "socks-out"
+        "outbound": "$socks_tag"
       }
     ],
-    "final": "direct-out"
+    "final": "direct-out-${filename}"
   }
 }
 EOF
@@ -408,12 +414,38 @@ main() {
         echo "Warp容器已安装。"
     fi
 
+    # 清理可能的冲突配置
+    cleanup_configs
+    
     # 修改所有配置文件
     modify_hysteria2_config
     echo "所有协议配置文件已修改，出站流量都将经过127.0.0.1:1080端口"
     
     # 修改主配置文件
     update_main_config_json
+}
+
+# 清理可能存在的冲突配置
+cleanup_configs() {
+    echo "正在清理可能的冲突配置..."
+    
+    # 停止sing-box服务
+    systemctl stop sing-box
+    
+    # 清理主配置文件中的旧outbounds
+    local main_config="/etc/sing-box/config.json"
+    if [ -f "$main_config" ]; then
+        # 备份配置
+        cp "$main_config" "$main_config.backup.$(date +%Y%m%d%H%M%S)"
+        
+        # 移除socks-out标签相关内容
+        if jq -e '.outbounds[] | select(.tag == "socks-out")' "$main_config" > /dev/null 2>&1; then
+            echo "正在移除主配置中的旧socks-out标签..."
+            jq '.outbounds = [.outbounds[] | select(.tag != "socks-out")]' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
+        fi
+    fi
+    
+    echo "配置清理完成"
 }
 
 # 更新主配置文件以支持WARP
@@ -428,13 +460,13 @@ update_main_config_json() {
         # 读取当前配置中的outbounds部分
         local current_outbounds=$(jq '.outbounds' "$main_config")
         
-        # 检查是否已存在socks-out
-        if ! echo "$current_outbounds" | grep -q '"tag":"socks-out"'; then
+        # 检查是否已存在socks-out-main标签
+        if ! echo "$current_outbounds" | grep -q '"tag":"socks-out-main"'; then
             # 创建新的outbounds配置
             local new_outbounds='[
   {
     "type": "socks",
-    "tag": "socks-out",
+    "tag": "socks-out-main",
     "server": "127.0.0.1",
     "server_port": 1080
   },'
@@ -488,7 +520,7 @@ update_main_route() {
             
             # 为每个入站添加路由规则
             for tag in "${inbound_tags[@]}"; do
-                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out\"},"
+                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
             done
             
             # 添加已有规则
@@ -518,32 +550,38 @@ update_main_route() {
             jq ".route.rules = $rules_json" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
             
             # 设置默认出站为direct-out
-            jq '.route.final = "direct-out"' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
+            jq '.route.final = "direct-out-main"' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
         else
             # 没有rules，创建新的rules
             local rules_json="["
             for tag in "${inbound_tags[@]}"; do
-                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out\"},"
+                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
             done
             # 移除最后一个逗号并关闭数组
             rules_json=$(echo "$rules_json" | sed 's/,$//')
             rules_json+="]"
             
             # 更新路由规则
-            jq ".route += {\"rules\":$rules_json, \"final\":\"direct-out\"}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
+            jq ".route += {\"rules\":$rules_json, \"final\":\"direct-out-main\"}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
         fi
     else
         # 没有route，创建新的route
         local rules_json="["
         for tag in "${inbound_tags[@]}"; do
-            rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out\"},"
+            rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
         done
         # 移除最后一个逗号并关闭数组
         rules_json=$(echo "$rules_json" | sed 's/,$//')
         rules_json+="]"
         
         # 添加route部分
-        jq ". += {\"route\":{\"rules\":$rules_json, \"final\":\"direct-out\"}}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
+        jq ". += {\"route\":{\"rules\":$rules_json, \"final\":\"direct-out-main\"}}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
+    fi
+    
+    # 确保主配置中有direct-out-main
+    if ! jq -e '.outbounds[] | select(.tag == "direct-out-main")' "$main_config" > /dev/null 2>&1; then
+        # 添加direct-out-main
+        jq '.outbounds += [{"type":"direct","tag":"direct-out-main"}]' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
     fi
     
     echo "路由规则已更新，所有入站流量将经过WARP代理出站"
