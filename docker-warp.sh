@@ -473,10 +473,34 @@ EOF
     done
 }
 
-# 生成并直接打印所有协议的链接
+# 手动生成链接
 generate_subscription() {
     echo -e "\n$(tput setaf 2)正在生成所有协议的链接...$(tput sgr0)"
     local config_dir="/etc/sing-box/conf"
+    
+    # 获取IP信息
+    local ip_address=$(get_external_ip)
+    local ip_info=$(get_ip_info "$ip_address")
+    local country=$(echo "$ip_info" | cut -d',' -f1)
+    local query=$(echo "$ip_info" | cut -d',' -f2)
+    local city=$(echo "$ip_info" | cut -d',' -f3)
+    local org=$(echo "$ip_info" | cut -d',' -f4)
+    
+    # 处理可能的 null 值
+    country=${country:-"Unknown"}
+    query=${query:-"Unknown"}
+    city=${city:-"Unknown"}
+    org=${org:-"Unknown"}
+    
+    # 获取CPU架构信息
+    local cpu_arch=$(uname -m)
+    if [[ "$cpu_arch" == "x86_64" ]]; then
+        cpu_type="AMD64"
+    elif [[ "$cpu_arch" == "aarch64" ]]; then
+        cpu_type="ARM64"
+    else
+        cpu_type=$cpu_arch
+    fi
     
     # 直接打印所有配置文件的链接
     for file in "$config_dir"/*.json; do
@@ -498,7 +522,6 @@ generate_subscription() {
             fi
             
             # 使用sing-box的url命令获取链接
-            # 如果这个命令有问题，可以考虑手动构建链接
             echo "正在处理 $filename..."
             # 使用自带工具生成URL
             local sb_url_output=$(cd /etc/sing-box && sb url $filename 2>&1)
@@ -527,10 +550,11 @@ generate_subscription() {
             if [[ "$protocol" == "Hysteria2" ]]; then
                 local password=$(jq -r '.inbounds[0].users[0].password' "$file" 2>/dev/null || echo "")
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
-                local ip_address=$(get_external_ip)
                 
                 if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#Hysteria2-WARP"
+                    # 创建详细的备注信息
+                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${remark}"
                     echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$hysteria2_link$(tput sgr0)"
                 fi
             elif [[ "$protocol" == "VLESS" && "$filename" == *"REALITY"* ]]; then
@@ -538,10 +562,11 @@ generate_subscription() {
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
                 local server_name=$(jq -r '.inbounds[0].tls.server_name' "$file" 2>/dev/null || echo "aws.amazon.com")
                 local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
-                local ip_address=$(get_external_ip)
                 
                 if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#VLESS-REALITY-WARP"
+                    # 创建详细的备注信息
+                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#${remark}"
                     echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$vless_link$(tput sgr0)"
                 fi
             fi
@@ -561,10 +586,11 @@ generate_subscription() {
             if [[ "$protocol" == "Hysteria2" ]]; then
                 local password=$(jq -r '.inbounds[0].users[0].password' "$file" 2>/dev/null || echo "")
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
-                local ip_address=$(get_external_ip)
                 
                 if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#Hysteria2-WARP"
+                    # 创建详细的备注信息
+                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${remark}"
                     echo "$hysteria2_link" >> "$temp_file"
                 fi
             elif [[ "$protocol" == "VLESS" && "$filename" == *"REALITY"* ]]; then
@@ -572,10 +598,11 @@ generate_subscription() {
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
                 local server_name=$(jq -r '.inbounds[0].tls.server_name' "$file" 2>/dev/null || echo "aws.amazon.com")
                 local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
-                local ip_address=$(get_external_ip)
                 
                 if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#VLESS-REALITY-WARP"
+                    # 创建详细的备注信息
+                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#${remark}"
                     echo "$vless_link" >> "$temp_file"
                 fi
             fi
