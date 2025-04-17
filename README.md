@@ -1,5 +1,5 @@
 # 介绍
-
+原作者：https://github.com/233boy/sing-box
 最好用的 sing-box 一键安装脚本 & 管理脚本
 
 ## 安装指南
