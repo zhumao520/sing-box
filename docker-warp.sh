@@ -502,6 +502,9 @@ generate_subscription() {
         cpu_type=$cpu_arch
     fi
     
+    # 创建一个标准的备注格式
+    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+    
     # 直接打印所有配置文件的链接
     for file in "$config_dir"/*.json; do
         if [ -f "$file" ]; then
@@ -521,6 +524,9 @@ generate_subscription() {
                 fi
             fi
             
+            # 生成配置类型对应的详细信息
+            local protocol=$(echo "$filename" | cut -d'-' -f1)
+            
             # 使用sing-box的url命令获取链接
             echo "正在处理 $filename..."
             # 使用自带工具生成URL
@@ -532,7 +538,12 @@ generate_subscription() {
                 # 提取URL部分
                 local link=$(echo "$sb_url_output" | grep -Eo '(vless|hysteria2|vmess|trojan|tuic)://[^ ]+' | head -1)
                 if [[ -n "$link" ]]; then
-                    echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 4)$link$(tput sgr0)"
+                    # 修改链接的备注部分
+                    # 先提取链接的主体部分 (不包括#后面的备注)
+                    local link_without_remark=$(echo "$link" | sed 's/#.*$//')
+                    # 创建新链接，添加详细备注
+                    local enhanced_link="${link_without_remark}#${remark}"
+                    echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 4)$enhanced_link$(tput sgr0)"
                 else
                     echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 1)无法提取链接$(tput sgr0)"
                 fi
@@ -552,8 +563,7 @@ generate_subscription() {
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
                 
                 if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    # 创建详细的备注信息
-                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    # 使用标准备注格式
                     local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${remark}"
                     echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$hysteria2_link$(tput sgr0)"
                 fi
@@ -564,8 +574,7 @@ generate_subscription() {
                 local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
                 
                 if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    # 创建详细的备注信息
-                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    # 使用标准备注格式
                     local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#${remark}"
                     echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$vless_link$(tput sgr0)"
                 fi
@@ -577,7 +586,7 @@ generate_subscription() {
     echo -e "\n$(tput setaf 2)如需订阅链接，请复制以下Base64编码:$(tput sgr0)"
     local temp_file=$(mktemp)
     
-    # 手动生成链接并写入临时文件
+    # 手动生成链接并写入临时文件 - 使用详细备注
     for file in "$config_dir"/*.json; do
         if [ -f "$file" ]; then
             local filename=$(basename "$file")
@@ -588,8 +597,7 @@ generate_subscription() {
                 local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
                 
                 if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    # 创建详细的备注信息
-                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    # 使用标准备注格式
                     local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#${remark}"
                     echo "$hysteria2_link" >> "$temp_file"
                 fi
@@ -600,8 +608,7 @@ generate_subscription() {
                 local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
                 
                 if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
-                    # 创建详细的备注信息
-                    local remark="${country}-${ip_address}-${city}-${org}-${cpu_type}-WARP"
+                    # 使用标准备注格式
                     local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#${remark}"
                     echo "$vless_link" >> "$temp_file"
                 fi
