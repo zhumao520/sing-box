@@ -900,3 +900,4 @@ echo -e "$(tput setaf 6)bash docker-warp.sh check$(tput sgr0)"
 
 # 在脚本结尾处增加卸载说明
 echo -e "$(tput setaf 3)如需卸载WARP代理配置，请运行:$(tput sgr0)"
+echo -e "$(tput setaf 6)bash docker-warp.sh uninstall$(tput sgr0)"
