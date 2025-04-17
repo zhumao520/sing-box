@@ -210,7 +210,6 @@ ask() {
         ;;
     set_protocol)
         is_tmp_list=(${protocol_list[@]})
-        is_default_arg="Hysteria2"
         [[ $is_no_auto_tls ]] && {
             unset is_tmp_list
             for v in ${protocol_list[@]}; do
@@ -218,7 +217,6 @@ ask() {
             done
         }
         is_opt_msg="\n请选择协议:\n"
-        is_opt_input_msg="(默认\e[92m $is_default_arg\e[0m):"
         is_ask_set=is_new_protocol
         ;;
     set_change_list)
@@ -1497,8 +1495,6 @@ is_main_menu() {
     ask mainmenu
     case $REPLY in
     1)
-        # 直接设置默认协议为Hysteria2
-        is_new_protocol="Hysteria2"
         add
         ;;
     2)
@@ -1564,8 +1560,6 @@ main() {
     a | add | gen | no-auto-tls)
         [[ $1 == 'gen' ]] && is_gen=1
         [[ $1 == 'no-auto-tls' ]] && is_no_auto_tls=1
-        # 如果没有指定协议，设置默认协议为Hysteria2
-        [[ ! $2 ]] && is_new_protocol="Hysteria2"
         add ${@:2}
         ;;
     bin | pbk | check | completion | format | generate | geoip | geosite | merge | rule-set | run | tools)
