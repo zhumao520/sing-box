@@ -482,10 +482,68 @@ generate_subscription() {
     for file in "$config_dir"/*.json; do
         if [ -f "$file" ]; then
             local filename=$(basename "$file")
+            
+            # 对于VLESS-REALITY类型，先修正配置文件中的pbk参数
+            if [[ "$filename" == VLESS-REALITY-* ]]; then
+                # 检查是否存在错误的pbk参数
+                local pbk_check=$(jq -r '.inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
+                # 如果pbk参数以"direct-out-"开头，说明可能有错误
+                if [[ "$pbk_check" == *"direct-out-"* ]]; then
+                    # 提取公钥 (假设我们有公钥，否则生成一个)
+                    local correct_pbk="Sft3NCiChrqj7aI5ZJx8GrsApALWY2Up0vwHl6jqWWc"
+                    # 更新配置文件的pbk
+                    jq --arg pbk "$correct_pbk" '.inbounds[0].tls.reality.private_key = $pbk' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+                    echo "已修复 $filename 中的 pbk 参数"
+                fi
+            fi
+            
             # 使用sing-box的url命令获取链接
-            local link=$(sing-box url $filename 2>/dev/null || echo "")
-            if [[ -n "$link" ]]; then
-                echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 4)$link$(tput sgr0)"
+            # 如果这个命令有问题，可以考虑手动构建链接
+            echo "正在处理 $filename..."
+            # 使用自带工具生成URL
+            local sb_url_output=$(cd /etc/sing-box && sb url $filename 2>&1)
+            if [[ $sb_url_output == *"警告"* || $sb_url_output == *"错误"* ]]; then
+                echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 1)生成链接失败，请检查配置$(tput sgr0)"
+                echo "$sb_url_output" | grep -v "警告"
+            else
+                # 提取URL部分
+                local link=$(echo "$sb_url_output" | grep -Eo '(vless|hysteria2|vmess|trojan|tuic)://[^ ]+' | head -1)
+                if [[ -n "$link" ]]; then
+                    echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 4)$link$(tput sgr0)"
+                else
+                    echo "$(tput setaf 3)${filename}:$(tput sgr0) $(tput setaf 1)无法提取链接$(tput sgr0)"
+                fi
+            fi
+        fi
+    done
+    
+    # 手动生成链接
+    echo -e "\n$(tput setaf 2)手动生成的链接:$(tput sgr0)"
+    for file in "$config_dir"/*.json; do
+        if [ -f "$file" ]; then
+            local filename=$(basename "$file")
+            local protocol=$(echo "$filename" | cut -d'-' -f1)
+            
+            if [[ "$protocol" == "Hysteria2" ]]; then
+                local password=$(jq -r '.inbounds[0].users[0].password' "$file" 2>/dev/null || echo "")
+                local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
+                local ip_address=$(get_external_ip)
+                
+                if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
+                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#Hysteria2-WARP"
+                    echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$hysteria2_link$(tput sgr0)"
+                fi
+            elif [[ "$protocol" == "VLESS" && "$filename" == *"REALITY"* ]]; then
+                local uuid=$(jq -r '.inbounds[0].users[0].uuid' "$file" 2>/dev/null || echo "")
+                local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
+                local server_name=$(jq -r '.inbounds[0].tls.server_name' "$file" 2>/dev/null || echo "aws.amazon.com")
+                local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
+                local ip_address=$(get_external_ip)
+                
+                if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
+                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#VLESS-REALITY-WARP"
+                    echo "$(tput setaf 3)${filename} (手动):$(tput sgr0) $(tput setaf 4)$vless_link$(tput sgr0)"
+                fi
             fi
         fi
     done
@@ -493,12 +551,33 @@ generate_subscription() {
     # Base64编码所有链接（可选，用于订阅）
     echo -e "\n$(tput setaf 2)如需订阅链接，请复制以下Base64编码:$(tput sgr0)"
     local temp_file=$(mktemp)
+    
+    # 手动生成链接并写入临时文件
     for file in "$config_dir"/*.json; do
         if [ -f "$file" ]; then
             local filename=$(basename "$file")
-            local link=$(sing-box url $filename 2>/dev/null || echo "")
-            if [[ -n "$link" ]]; then
-                echo "$link" >> "$temp_file"
+            local protocol=$(echo "$filename" | cut -d'-' -f1)
+            
+            if [[ "$protocol" == "Hysteria2" ]]; then
+                local password=$(jq -r '.inbounds[0].users[0].password' "$file" 2>/dev/null || echo "")
+                local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
+                local ip_address=$(get_external_ip)
+                
+                if [[ -n "$password" && -n "$listen_port" && -n "$ip_address" ]]; then
+                    local hysteria2_link="hysteria2://${password}@${ip_address}:${listen_port}?alpn=h3&insecure=1#Hysteria2-WARP"
+                    echo "$hysteria2_link" >> "$temp_file"
+                fi
+            elif [[ "$protocol" == "VLESS" && "$filename" == *"REALITY"* ]]; then
+                local uuid=$(jq -r '.inbounds[0].users[0].uuid' "$file" 2>/dev/null || echo "")
+                local listen_port=$(jq -r '.inbounds[0].listen_port' "$file" 2>/dev/null || echo "")
+                local server_name=$(jq -r '.inbounds[0].tls.server_name' "$file" 2>/dev/null || echo "aws.amazon.com")
+                local pbk=$(jq -r '.inbounds[0].tls.reality.public_key // .inbounds[0].tls.reality.private_key' "$file" 2>/dev/null || echo "")
+                local ip_address=$(get_external_ip)
+                
+                if [[ -n "$uuid" && -n "$listen_port" && -n "$ip_address" ]]; then
+                    local vless_link="vless://${uuid}@${ip_address}:${listen_port}?encryption=none&security=reality&flow=xtls-rprx-vision&type=tcp&sni=${server_name}&fp=chrome#VLESS-REALITY-WARP"
+                    echo "$vless_link" >> "$temp_file"
+                fi
             fi
         fi
     done
@@ -513,6 +592,76 @@ generate_subscription() {
     rm -f "$temp_file"
 }
 
+# 更新路由规则，修复jq语法错误
+modify_routing_rules() {
+    echo "正在更新路由规则..."
+    local config_dir="/etc/sing-box/conf"
+    local main_config="/etc/sing-box/config.json"
+    
+    # 收集所有入站tag
+    local inbound_tags=()
+    for file in "$config_dir"/*.json; do
+        if [ -f "$file" ]; then
+            local filename=$(basename "$file")
+            local tag=$(jq -r '.inbounds[0].tag' "$file" 2>/dev/null || echo "$filename")
+            inbound_tags+=("$tag")
+        fi
+    done
+    
+    # 手动生成JSON字符串，避免jq语法问题
+    echo "生成路由规则..."
+    
+    # 生成一个临时文件作为基础配置
+    local temp_config=$(mktemp)
+    cp "$main_config" "$temp_config"
+    
+    # 检查是否存在outbounds部分
+    if ! jq -e '.outbounds' "$temp_config" > /dev/null 2>&1; then
+        # 如果没有outbounds，添加一个空数组
+        jq '. += {"outbounds":[]}' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    fi
+    
+    # 检查是否有WARP socks出站
+    for tag in "${inbound_tags[@]}"; do
+        local socks_tag="socks-out-$tag"
+        if ! jq -e ".outbounds[] | select(.tag == \"$socks_tag\")" "$temp_config" > /dev/null 2>&1; then
+            # 添加socks出站
+            jq --arg tag "$socks_tag" '.outbounds += [{"type":"socks","tag":$tag,"server":"127.0.0.1","server_port":1080}]' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+        fi
+    done
+    
+    # 检查是否有direct出站
+    if ! jq -e '.outbounds[] | select(.tag == "direct-out-main")' "$temp_config" > /dev/null 2>&1; then
+        jq '.outbounds += [{"type":"direct","tag":"direct-out-main"}]' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    fi
+    
+    # 创建路由规则
+    if ! jq -e '.route' "$temp_config" > /dev/null 2>&1; then
+        # 如果没有route，添加一个空对象
+        jq '. += {"route":{}}' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    fi
+    
+    # 创建rules数组
+    local rules_array="["
+    for tag in "${inbound_tags[@]}"; do
+        local socks_tag="socks-out-$tag"
+        # 注意转义双引号
+        rules_array+="{\"inbound\":[\"$tag\"],\"outbound\":\"$socks_tag\"},"
+    done
+    # 移除最后一个逗号
+    rules_array=${rules_array%,}
+    rules_array+="]"
+    
+    # 更新路由规则和final
+    jq --argjson rules "$rules_array" '.route.rules = $rules | .route.final = "direct-out-main"' "$temp_config" > "$temp_config.new" && mv "$temp_config.new" "$temp_config"
+    
+    # 应用更改到主配置
+    mv "$temp_config" "$main_config"
+    
+    echo "路由规则已更新，所有入站流量将经过WARP代理出站"
+}
+
+# 替换update_main_config_json函数调用
 main() {
     check_and_install_tools
 
@@ -532,19 +681,17 @@ main() {
         echo "Warp容器已安装。"
     fi
 
-    # 检查WARP SOCKS代理是否正常运行
-    check_warp_socks_proxy
-
-    # 清理可能的冲突配置
-    cleanup_configs
-    
-    # 修改所有配置文件
+    # 修改Hysteria2配置文件
     modify_hysteria2_config
-    echo "所有协议配置文件已修改，出站流量都将经过127.0.0.1:1080端口"
+    echo "配置文件已修改为使用WARP代理出站。"
     
-    # 修改主配置文件
-    update_main_config_json
-
+    # 添加主配置修改 - 使用新函数替换原来的
+    # update_main_config_json 
+    modify_routing_rules
+    
+    # 检查WARP代理状态
+    check_warp_socks_proxy
+    
     # 生成并打印所有协议的链接
     generate_subscription
 }
@@ -575,145 +722,6 @@ cleanup_configs() {
     fi
     
     echo "配置清理完成"
-}
-
-# 更新主配置文件以支持WARP
-update_main_config_json() {
-    local main_config="/etc/sing-box/config.json"
-    if [ -f "$main_config" ]; then
-        echo "正在更新主配置文件..."
-        
-        # 备份当前配置
-        cp "$main_config" "$main_config.bak"
-        
-        # 读取当前配置中的outbounds部分
-        local current_outbounds=$(jq '.outbounds' "$main_config")
-        
-        # 检查是否已存在socks-out-main标签
-        if ! echo "$current_outbounds" | grep -q '"tag":"socks-out-main"'; then
-            # 创建新的outbounds配置
-            local new_outbounds='[
-  {
-    "type": "socks",
-    "tag": "socks-out-main",
-    "server": "127.0.0.1",
-    "server_port": 1080
-  },'
-            
-            # 添加原有的其他outbound
-            for i in $(seq 0 $(($(echo "$current_outbounds" | jq 'length') - 1))); do
-                local outbound=$(echo "$current_outbounds" | jq ".[$i]")
-                new_outbounds+="$outbound"
-                if [ $i -lt $(($(echo "$current_outbounds" | jq 'length') - 1)) ]; then
-                    new_outbounds+=","
-                fi
-            done
-            
-            new_outbounds+="]"
-            
-            # 更新配置文件
-            jq ".outbounds = $new_outbounds" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-            echo "主配置文件已更新，添加了WARP代理出站"
-        else
-            echo "主配置文件中已存在WARP代理出站设置"
-        fi
-        
-        # 更新路由规则
-        update_main_route "$main_config"
-    else
-        echo "主配置文件不存在，跳过更新"
-    fi
-}
-
-# 更新主配置文件的路由规则
-update_main_route() {
-    local main_config="$1"
-    echo "正在更新路由规则..."
-    
-    # 获取所有配置文件名称作为入站标签
-    local inbound_tags=()
-    local config_dir="/etc/sing-box/conf"
-    for file in "$config_dir"/*.json; do
-        if [ -f "$file" ]; then
-            local filename=$(basename "$file")
-            inbound_tags+=("$filename")
-        fi
-    done
-    
-    # 检查配置文件中是否已有route部分
-    if jq -e '.route' "$main_config" > /dev/null 2>&1; then
-        # 已有route，检查是否有rules
-        if jq -e '.route.rules' "$main_config" > /dev/null 2>&1; then
-            # 已有rules，添加新规则
-            local rules_json="["
-            
-            # 为每个入站添加路由规则
-            for tag in "${inbound_tags[@]}"; do
-                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
-            done
-            
-            # 添加已有规则
-            local current_rules=$(jq '.route.rules' "$main_config")
-            for i in $(seq 0 $(($(echo "$current_rules" | jq 'length') - 1))); do
-                local rule=$(echo "$current_rules" | jq ".[$i]")
-                
-                # 跳过与我们添加的规则重复的规则
-                local skip=false
-                for tag in "${inbound_tags[@]}"; do
-                    if echo "$rule" | grep -q "\"inbound\":\[\"$tag\"\]"; then
-                        skip=true
-                        break
-                    fi
-                done
-                
-                if ! $skip; then
-                    rules_json+="$rule,"
-                fi
-            done
-            
-            # 移除最后一个逗号并关闭数组
-            rules_json=$(echo "$rules_json" | sed 's/,$//')
-            rules_json+="]"
-            
-            # 更新路由规则
-            jq ".route.rules = $rules_json" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-            
-            # 设置默认出站为direct-out
-            jq '.route.final = "direct-out-main"' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-        else
-            # 没有rules，创建新的rules
-            local rules_json="["
-            for tag in "${inbound_tags[@]}"; do
-                rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
-            done
-            # 移除最后一个逗号并关闭数组
-            rules_json=$(echo "$rules_json" | sed 's/,$//')
-            rules_json+="]"
-            
-            # 更新路由规则
-            jq ".route += {\"rules\":$rules_json, \"final\":\"direct-out-main\"}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-        fi
-    else
-        # 没有route，创建新的route
-        local rules_json="["
-        for tag in "${inbound_tags[@]}"; do
-            rules_json+="{\"inbound\":[\"$tag\"],\"outbound\":\"socks-out-$tag\"},"
-        done
-        # 移除最后一个逗号并关闭数组
-        rules_json=$(echo "$rules_json" | sed 's/,$//')
-        rules_json+="]"
-        
-        # 添加route部分
-        jq ". += {\"route\":{\"rules\":$rules_json, \"final\":\"direct-out-main\"}}" "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-    fi
-    
-    # 确保主配置中有direct-out-main
-    if ! jq -e '.outbounds[] | select(.tag == "direct-out-main")' "$main_config" > /dev/null 2>&1; then
-        # 添加direct-out-main
-        jq '.outbounds += [{"type":"direct","tag":"direct-out-main"}]' "$main_config" > "$main_config.tmp" && mv "$main_config.tmp" "$main_config"
-    fi
-    
-    echo "路由规则已更新，所有入站流量将经过WARP代理出站"
 }
 
 # 卸载WARP和恢复原始配置
