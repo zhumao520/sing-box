@@ -1,5 +1,83 @@
 #!/bin/bash
 
+# 检查WARP SOCKS代理是否正常运行
+check_warp_socks_proxy() {
+    echo "正在检查WARP SOCKS代理(127.0.0.1:1080)连通性..."
+    
+    # 等待WARP容器启动
+    sleep 3
+    
+    # 使用curl通过SOCKS代理获取IP，测试代理是否工作
+    if command -v curl &> /dev/null; then
+        echo "使用curl测试SOCKS代理..."
+        if curl --connect-timeout 10 --max-time 15 -s --socks5 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace | grep -q "warp=on"; then
+            echo "$(tput setaf 2)✓ WARP SOCKS代理运行正常，已连接到Cloudflare WARP网络$(tput sgr0)"
+            
+            # 显示WARP IP信息
+            local warp_ip=$(curl -s --socks5 127.0.0.1:1080 https://api.ipify.org)
+            echo "$(tput setaf 6)WARP代理IP地址: $warp_ip$(tput sgr0)"
+            
+            # 显示WARP IP地理位置
+            local warp_ip_info=$(curl -s "http://ip-api.com/json/${warp_ip}")
+            local country=$(echo "$warp_ip_info" | jq -r '.country // "Unknown"')
+            local city=$(echo "$warp_ip_info" | jq -r '.city // "Unknown"')
+            local isp=$(echo "$warp_ip_info" | jq -r '.isp // "Unknown"')
+            echo "$(tput setaf 6)WARP IP位置: $country, $city ($isp)$(tput sgr0)"
+        else
+            echo "$(tput setaf 1)✗ WARP SOCKS代理测试失败$(tput sgr0)"
+            
+            # 检查Docker日志
+            echo "检查WARP容器日志..."
+            docker logs --tail 20 warp
+            
+            # 检查容器状态
+            echo "检查WARP容器状态..."
+            docker ps -a | grep warp
+            
+            echo "$(tput setaf 3)提示：可能需要多等待一会儿，WARP连接初始化可能需要一些时间$(tput sgr0)"
+            echo "$(tput setaf 3)如果长时间无法连接，可以尝试重启WARP容器: docker restart warp$(tput sgr0)"
+        fi
+    else
+        echo "未安装curl，无法测试SOCKS代理连通性"
+    fi
+    
+    # 测试TCP连通性
+    echo "测试TCP连通性..."
+    if command -v nc &> /dev/null; then
+        if nc -z -w5 127.0.0.1 1080; then
+            echo "$(tput setaf 2)✓ TCP端口1080可访问$(tput sgr0)"
+        else
+            echo "$(tput setaf 1)✗ TCP端口1080不可访问$(tput sgr0)"
+        fi
+    else
+        if command -v telnet &> /dev/null; then
+            echo "使用telnet测试端口..."
+            timeout 5 telnet 127.0.0.1 1080 > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                echo "$(tput setaf 2)✓ TCP端口1080可访问$(tput sgr0)"
+            else
+                echo "$(tput setaf 1)✗ TCP端口1080不可访问$(tput sgr0)"
+            fi
+        else
+            echo "未安装nc或telnet，无法测试TCP连通性"
+        fi
+    fi
+}
+
+# 命令行参数处理
+case "$1" in
+    check)
+        # 直接检查WARP代理状态
+        check_warp_socks_proxy
+        exit 0
+        ;;
+    uninstall)
+        # 卸载功能
+        uninstall_warp
+        exit 0
+        ;;
+esac
+
 # 检查并安装必需的工具
 check_and_install_tools() {
     local tools=("wget" "jq" "expect" "curl")
@@ -414,6 +492,9 @@ main() {
         echo "Warp容器已安装。"
     fi
 
+    # 检查WARP SOCKS代理是否正常运行
+    check_warp_socks_proxy
+
     # 清理可能的冲突配置
     cleanup_configs
     
@@ -423,6 +504,11 @@ main() {
     
     # 修改主配置文件
     update_main_config_json
+}
+
+# 手动检查WARP SOCKS代理
+check_warp_proxy() {
+    check_warp_socks_proxy
 }
 
 # 清理可能存在的冲突配置
@@ -587,7 +673,127 @@ update_main_route() {
     echo "路由规则已更新，所有入站流量将经过WARP代理出站"
 }
 
+# 卸载WARP和恢复原始配置
+uninstall_warp() {
+    echo "==============================================="
+    echo "       卸载 WARP 代理和还原配置"
+    echo "==============================================="
+    
+    # 询问用户是否要卸载WARP容器
+    read -p "是否要卸载WARP容器？这将移除WARP SOCKS代理 [y/N]: " remove_warp_container
+    remove_warp_container=${remove_warp_container:-n}
+    
+    if [[ "${remove_warp_container,,}" == "y" ]]; then
+        echo "正在停止并移除WARP容器..."
+        docker stop warp &>/dev/null
+        docker rm warp &>/dev/null
+        docker rmi caomingjun/warp &>/dev/null
+        rm -rf /mnt/warp &>/dev/null
+        echo "$(tput setaf 2)WARP容器已移除$(tput sgr0)"
+    else
+        echo "保留WARP容器，可以手动使用或供其他应用程序使用。"
+    fi
+    
+    # 询问用户是否要还原配置文件
+    read -p "是否要还原所有配置文件为原始状态？这将移除WARP代理出站配置 [y/N]: " restore_configs
+    restore_configs=${restore_configs:-n}
+    
+    if [[ "${restore_configs,,}" == "y" ]]; then
+        echo "正在还原配置文件..."
+        
+        # 停止sing-box服务
+        systemctl stop sing-box
+        
+        # 恢复主配置文件
+        local main_config="/etc/sing-box/config.json"
+        if [ -f "$main_config.backup."* ]; then
+            local latest_backup=$(ls -t "$main_config.backup."* | head -n1)
+            if [ -f "$latest_backup" ]; then
+                cp "$latest_backup" "$main_config"
+                echo "已恢复主配置文件($main_config)为备份版本"
+            fi
+        else
+            # 如果没有备份，则生成新的默认配置
+            jq '{
+                log: {level:"info", timestamp:true},
+                outbounds: [
+                    {tag:"direct", type:"direct"},
+                    {tag:"block", type:"block"}
+                ]
+            }' <<< {} > "$main_config"
+            echo "已重置主配置文件为默认配置"
+        fi
+        
+        # 询问用户是否要恢复原始协议配置文件
+        read -p "是否要恢复原始协议配置文件(如Hysteria2, VLESS等)？[y/N]: " restore_protocol_configs
+        restore_protocol_configs=${restore_protocol_configs:-n}
+        
+        if [[ "${restore_protocol_configs,,}" == "y" ]]; then
+            local config_dir="/etc/sing-box/conf"
+            echo "正在处理协议配置文件..."
+            
+            for file in "$config_dir"/*.json; do
+                if [ -f "$file" ]; then
+                    local filename=$(basename "$file")
+                    local protocol=$(echo "$filename" | cut -d'-' -f1)
+                    
+                    # 从文件中提取入站配置
+                    local inbounds=$(jq '.inbounds' "$file")
+                    
+                    # 创建新的配置，仅保留入站配置，使用默认出站
+                    jq "{
+                        log: {level:\"info\", timestamp:true},
+                        inbounds: $inbounds,
+                        outbounds: [
+                            {tag:\"direct-$filename\", type:\"direct\"},
+                            {tag:\"block-$filename\", type:\"block\"}
+                        ],
+                        route: {
+                            rules: [
+                                {
+                                    inbound: [\"$filename\"],
+                                    outbound: \"direct-$filename\"
+                                }
+                            ],
+                            final: \"direct-$filename\"
+                        }
+                    }" <<< {} > "$file"
+                    
+                    echo "已重置协议配置文件: $filename"
+                fi
+            done
+        fi
+        
+        # 重启sing-box服务
+        systemctl restart sing-box
+        echo "$(tput setaf 2)所有配置已还原，sing-box服务已重启$(tput sgr0)"
+    else
+        echo "保留当前配置文件。"
+    fi
+    
+    echo "==============================================="
+    echo "      卸载操作已完成"
+    echo "==============================================="
+    
+    # 提供使用说明
+    if [[ "${remove_warp_container,,}" != "y" ]]; then
+        echo "WARP容器仍在运行。如果您想在将来手动移除它，请运行:"
+        echo "$(tput setaf 6)docker stop warp && docker rm warp && docker rmi caomingjun/warp && rm -rf /mnt/warp$(tput sgr0)"
+    fi
+}
+
 main
 
 # 重启sing-box服务
 systemctl restart sing-box && echo "sing-box服务已重启。"
+
+# 提示用户可以手动检查WARP代理
+echo -e "\n$(tput setaf 3)您可以随时运行以下命令检查WARP代理状态:$(tput sgr0)"
+echo -e "$(tput setaf 6)curl --socks5 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace$(tput sgr0)"
+echo -e "$(tput setaf 6)curl --socks5 127.0.0.1:1080 https://api.ipify.org$(tput sgr0)"
+echo -e "$(tput setaf 6)docker logs warp$(tput sgr0)"
+echo -e "$(tput setaf 3)如果需要重新检查WARP代理状态，请运行:$(tput sgr0)"
+echo -e "$(tput setaf 6)bash docker-warp.sh check$(tput sgr0)"
+
+# 在脚本结尾处增加卸载说明
+echo -e "$(tput setaf 3)如需卸载WARP代理配置，请运行:$(tput sgr0)"
