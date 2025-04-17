@@ -1,9 +1,9 @@
 #!/bin/bash
 
 protocol_list=(
+    Hysteria2
     TUIC
     Trojan
-    Hysteria2
     VMess-WS
     VMess-TCP
     VMess-HTTP
