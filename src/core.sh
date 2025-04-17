@@ -1497,6 +1497,8 @@ is_main_menu() {
     ask mainmenu
     case $REPLY in
     1)
+        # 直接设置默认协议为Hysteria2
+        is_new_protocol="Hysteria2"
         add
         ;;
     2)
@@ -1562,6 +1564,8 @@ main() {
     a | add | gen | no-auto-tls)
         [[ $1 == 'gen' ]] && is_gen=1
         [[ $1 == 'no-auto-tls' ]] && is_no_auto_tls=1
+        # 如果没有指定协议，设置默认协议为Hysteria2
+        [[ ! $2 ]] && is_new_protocol="Hysteria2"
         add ${@:2}
         ;;
     bin | pbk | check | completion | format | generate | geoip | geosite | merge | rule-set | run | tools)
