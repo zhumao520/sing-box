@@ -2,6 +2,8 @@
 
 protocol_list=(
     Hysteria2
+    VLESS-REALITY
+    VLESS-HTTP2-REALITY
     TUIC
     Trojan
     VMess-WS
@@ -18,8 +20,6 @@ protocol_list=(
     VMess-HTTPUpgrade-TLS
     VLESS-HTTPUpgrade-TLS
     Trojan-HTTPUpgrade-TLS
-    VLESS-REALITY
-    VLESS-HTTP2-REALITY
     # Direct
     Socks
 )
@@ -132,7 +132,7 @@ get_port() {
             err "自动获取可用端口失败次数达到 233 次, 请检查端口占用情况."
         fi
         tmp_port=$(shuf -i 445-65535 -n 1)
-        [[ ! $(is_test port_used $tmp_port) && $tmp_port != $port ]] && break
+        [[ ! $(is_port_used $tmp_port) && $tmp_port != $port ]] && break
     done
 }
 
@@ -266,7 +266,7 @@ ask() {
                     msg "$is_err 请输入正确的端口, 可选(1-65535)"
                     continue
                 }
-                if [[ $(is_test port_used $REPLY) && $is_ask_set != 'door_port' ]]; then
+                if [[ $(is_port_used $REPLY) && $is_ask_set != 'door_port' ]]; then
                     msg "$is_err 无法使用 ($REPLY) 端口."
                     continue
                 fi
@@ -470,7 +470,7 @@ change() {
         [[ $host && ! $is_caddy ]] && err "($is_config_file) 不支持更改端口, 因为没啥意义."
         if [[ $is_new_port && ! $is_auto ]]; then
             [[ ! $(is_test port $is_new_port) ]] && err "请输入正确的端口, 可选(1-65535)"
-            [[ $is_new_port != 443 && $(is_test port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
+            [[ $is_new_port != 443 && $(is_port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
         fi
         [[ $is_auto ]] && get_port && is_new_port=$tmp_port
         [[ ! $is_new_port ]] && ask string is_new_port "请输入新端口:"
@@ -878,7 +878,7 @@ add() {
             [[ ! $(is_test port ${is_use_port}) ]] && {
                 err "($is_use_port) 不是一个有效的端口. $is_err_tips"
             }
-            [[ $(is_test port_used $is_use_port) && ! $is_gen ]] && {
+            [[ $(is_port_used $is_use_port) && ! $is_gen ]] && {
                 err "无法使用 ($is_use_port) 端口. $is_err_tips"
             }
             port=$is_use_port
@@ -929,7 +929,7 @@ add() {
     if [[ $is_use_tls ]]; then
         if [[ ! $is_no_auto_tls && ! $is_caddy && ! $is_gen && ! $is_dont_test_host ]]; then
             # test auto tls
-            [[ $(is_test port_used 80) || $(is_test port_used 443) ]] && {
+            [[ $(is_port_used 80) || $(is_port_used 443) ]] && {
                 get_port
                 is_http_port=$tmp_port
                 get_port
@@ -1495,7 +1495,9 @@ is_main_menu() {
     ask mainmenu
     case $REPLY in
     1)
-        add
+        # 默认自动添加Hysteria2协议
+        is_new_protocol=Hysteria2
+        add Hysteria2
         ;;
     2)
         change
