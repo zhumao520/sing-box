@@ -1,9 +1,9 @@
 #!/bin/bash
 
 protocol_list=(
-    Hysteria2
     TUIC
     Trojan
+    Hysteria2
     VMess-WS
     VMess-TCP
     VMess-HTTP
@@ -132,7 +132,7 @@ get_port() {
             err "自动获取可用端口失败次数达到 233 次, 请检查端口占用情况."
         fi
         tmp_port=$(shuf -i 445-65535 -n 1)
-        [[ ! $(is_port_used $tmp_port) && $tmp_port != $port ]] && break
+        [[ ! $(is_test port_used $tmp_port) && $tmp_port != $port ]] && break
     done
 }
 
@@ -266,7 +266,7 @@ ask() {
                     msg "$is_err 请输入正确的端口, 可选(1-65535)"
                     continue
                 }
-                if [[ $(is_port_used $REPLY) && $is_ask_set != 'door_port' ]]; then
+                if [[ $(is_test port_used $REPLY) && $is_ask_set != 'door_port' ]]; then
                     msg "$is_err 无法使用 ($REPLY) 端口."
                     continue
                 fi
@@ -470,7 +470,7 @@ change() {
         [[ $host && ! $is_caddy ]] && err "($is_config_file) 不支持更改端口, 因为没啥意义."
         if [[ $is_new_port && ! $is_auto ]]; then
             [[ ! $(is_test port $is_new_port) ]] && err "请输入正确的端口, 可选(1-65535)"
-            [[ $is_new_port != 443 && $(is_port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
+            [[ $is_new_port != 443 && $(is_test port_used $is_new_port) ]] && err "无法使用 ($is_new_port) 端口"
         fi
         [[ $is_auto ]] && get_port && is_new_port=$tmp_port
         [[ ! $is_new_port ]] && ask string is_new_port "请输入新端口:"
@@ -878,7 +878,7 @@ add() {
             [[ ! $(is_test port ${is_use_port}) ]] && {
                 err "($is_use_port) 不是一个有效的端口. $is_err_tips"
             }
-            [[ $(is_port_used $is_use_port) && ! $is_gen ]] && {
+            [[ $(is_test port_used $is_use_port) && ! $is_gen ]] && {
                 err "无法使用 ($is_use_port) 端口. $is_err_tips"
             }
             port=$is_use_port
@@ -929,7 +929,7 @@ add() {
     if [[ $is_use_tls ]]; then
         if [[ ! $is_no_auto_tls && ! $is_caddy && ! $is_gen && ! $is_dont_test_host ]]; then
             # test auto tls
-            [[ $(is_port_used 80) || $(is_port_used 443) ]] && {
+            [[ $(is_test port_used 80) || $(is_test port_used 443) ]] && {
                 get_port
                 is_http_port=$tmp_port
                 get_port
@@ -1374,7 +1374,7 @@ info() {
         msg "$a $tt= \e[${is_color}m${is_info_str[$i]}\e[0m"
     done
     if [[ $is_new_install ]]; then
-        warn "首次安装请查看脚本帮助文档: $(msg_ul https://github.com/${is_sh_repo})"
+        warn "首次安装请查看脚本帮助文档: $(msg_ul https://233boy.com/$is_core/$is_core-script/)"
     fi
     if [[ $is_url ]]; then
         msg "------------- ${info_list[12]} -------------"
@@ -1387,7 +1387,7 @@ info() {
         msg "------------- no-auto-tls INFO -------------"
         msg "端口(port): $port"
         msg "路径(path): $path"
-        msg "\e[41m帮助(help)\e[0m: $(msg_ul https://github.com/${is_sh_repo})"
+        msg "\e[41m帮助(help)\e[0m: $(msg_ul https://233boy.com/$is_core/no-auto-tls/)"
     fi
     footer_msg
 }
@@ -1399,9 +1399,9 @@ footer_msg() {
     ####### 要点13脸吗只会改我链接的小人 #######
     unset c n m s b
     msg "------------- END -------------"
-    msg "项目地址: $(msg_ul https://github.com/${is_sh_repo})"
-    msg "文档(doc): $(msg_ul https://github.com/${is_sh_repo})"
-    msg "\n"
+    msg "关注(tg): $(msg_ul https://t.me/tg2333)"
+    msg "文档(doc): $(msg_ul https://233boy.com/$is_core/$is_core-script/)"
+    msg "推广(ads): 机场推荐($is_core_name services): $(msg_ul https://g${c}e${n}t${m}j${s}m${b}s.com/)\n"
     ####### 要点13脸吗只会改我链接的小人 #######
 }
 
@@ -1490,7 +1490,7 @@ update() {
 is_main_menu() {
     msg "\n------------- $is_core_name script $is_sh_ver by $author -------------"
     msg "$is_core_name $is_core_ver: $is_core_status"
-    msg "Github: $(msg_ul https://github.com/${is_sh_repo})"
+    msg "群组(Chat): $(msg_ul https://t.me/tg233boy)"
     is_main_start=1
     ask mainmenu
     case $REPLY in
